@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Easy Map Installer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f4; }
+        .box { background: white; padding: 20px; border-radius: 8px; border: 1px solid #ccc; }
+        select, button { width: 100%; height: 45px; margin-top: 10px; font-size: 16px; }
+        #progress-wrap { display: none; margin-top: 20px; }
+        #progress-bar { width: 0%; height: 20px; background: #4CAF50; transition: width 0.3s; }
+        .status { font-size: 12px; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="box" id="setup-ui">
+    <h2>Map Setup</h2>
+    <p>Select your area to download for offline use.</p>
+    
+    <label>Country</label>
+    <select id="country">
+        <option value="my">Malaysia</option>
+        <option value="sg">Singapore</option>
+    </select>
+
+    <label>Region</label>
+    <select id="region">
+        <option value="johor">Johor</option>
+        <option value="kl">Kuala Lumpur</option>
+    </select>
+
+    <button onclick="installNow()" style="background: #007bff; color: white; border: none;">
+        INSTALL & START MAP
+    </button>
+
+    <div id="progress-wrap">
+        <div style="border: 1px solid #000;"><div id="progress-bar"></div></div>
+        <div class="status" id="status-text">Ready...</div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function installNow() {
+        var country = document.getElementById('country').value;
+        var region = document.getElementById('region').value;
+        var targetFile = 'maps/' + country + '_' + region + '.json';
+
+        document.getElementById('progress-wrap').style.display = 'block';
+        updateStatus("Contacting server...");
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', targetFile, true);
+        
+        xhr.onprogress = function(e) {
+            if (e.lengthComputable) {
+                var pct = Math.round((e.loaded / e.total) * 100);
+                document.getElementById('progress-bar').style.width = pct + '%';
+                updateStatus("Downloading: " + pct + "%");
+            }
+        };
+
+        xhr.onload = function() {
+            if (this.status == 200) {
+                updateStatus("Saving to device memory...");
+                // SAVE TO WEBSQL (Legacy Android Support)
+                saveToDevice(this.responseText);
+            } else {
+                alert("Could not find map for this region.");
+            }
+        };
+        xhr.send();
+    }
+
+    function saveToDevice(data) {
+        // Android 2.3 and 4.0 use WebSQL for large data storage
+        var db = window.openDatabase("MapDB", "1.0", "Offline Maps", 20 * 1024 * 1024);
+        db.transaction(function(tx) {
+            tx.executeSql('CREATE TABLE IF NOT EXISTS maps (id unique, content)');
+            tx.executeSql('INSERT OR REPLACE INTO maps (id, content) VALUES ("active_map", ?)', [data]);
+        }, errorCB, successCB);
+    }
+
+    function updateStatus(msg) { document.getElementById('status-text').innerHTML = msg; }
+    function errorCB(err) { alert("Error saving: " + err.code); }
+    function successCB() { 
+        alert("Installation Complete! Redirecting to your map...");
+        window.location.href = 'map_view.html'; 
+    }
+</script>
+
+</body>
+</html>
