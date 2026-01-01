@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Universal Map Installer</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.4; }
+        .step { border-bottom: 1px solid #ccc; padding: 15px 0; }
+        #progress { width: 100%; border: 1px solid #000; display: none; margin: 15px 0; }
+        #bar { width: 0%; height: 20px; background: green; }
+        .hidden { display: none; }
+        select { width: 100%; height: 35px; margin: 5px 0; }
+        label { font-weight: bold; display: block; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Map Tool Setup</h1>
+    <p>Target: Android 2.3+ / Universal</p>
+
+    <div id="step1" class="step">
+        <button id="installBtn" onclick="showSelection()" style="height:50px; width:100%;">
+            CLICK TO START SETUP
+        </button>
+    </div>
+
+    <div id="step2" class="step hidden">
+        <label>Select Country:</label>
+        <select id="country" onchange="toggleDetailedOptions()">
+            <option value="">-- Choose Country --</option>
+            <option value="my">Malaysia</option>
+            <option value="sg">Singapore</option>
+        </select>
+
+        <div style="margin: 15px 0; background: #eee; padding: 10px;">
+            <input type="checkbox" id="fullCountry" onclick="toggleDetailedOptions()"> 
+            <strong>Download Whole Country</strong><br>
+            <small>(Larger size, higher data usage)</small>
+        </div>
+
+        <div id="detailedSelection">
+            <label>State/Region:</label>
+            <select id="state"><option value="johor">Johor</option></select>
+            
+            <label>District/City:</label>
+            <select id="city"><option value="jb">Johor Bahru</option></select>
+        </div>
+
+        <button onclick="startDownload()" style="margin-top:20px; height:50px; width:100%; background:#007bff; color:white;">
+            DOWNLOAD & INSTALL
+        </button>
+    </div>
+
+    <div id="step3" class="step hidden">
+        <div id="progress"><div id="bar"></div></div>
+        <p id="status">Downloading map data...</p>
+    </div>
+
+    <div id="instructions" class="step hidden" style="background:#ccffcc; padding: 10px;">
+        <strong>SUCCESS!</strong><br>
+        Press 'Menu' (or the 3 dots) then 'Add Shortcut to Home' to use this map offline.
+    </div>
+
+    <script type="text/javascript">
+        function showSelection() {
+            document.getElementById('step1').className = 'step hidden';
+            document.getElementById('step2').className = 'step';
+        }
+
+        function toggleDetailedOptions() {
+            var isFull = document.getElementById('fullCountry').checked;
+            var detailed = document.getElementById('detailedSelection');
+            detailed.style.display = isFull ? 'none' : 'block';
+        }
+
+        function startDownload() {
+            var country = document.getElementById('country').value;
+            if (!country) { alert("Please select a country"); return; }
+
+            // Determine file name based on logic
+            var fileName = country;
+            if (!document.getElementById('fullCountry').checked) {
+                var state = document.getElementById('state').value;
+                var city = document.getElementById('city').value;
+                fileName += "_" + state + "_" + city;
+            }
+            fileName += ".zip"; // Logic assumes files are named: my_johor_jb.zip
+
+            document.getElementById('step2').className = 'step hidden';
+            document.getElementById('step3').className = 'step';
+            document.getElementById('progress').style.display = 'block';
+
+            var bar = document.getElementById('bar');
+            var xhr = new XMLHttpRequest();
+            
+            // Note: Android 2.3 works best with relative paths
+            xhr.open('GET', 'maps/' + fileName, true);
+            xhr.responseType = 'blob';
+
+            xhr.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    var percent = (e.loaded / e.total) * 100;
+                    bar.style.width = percent + '%';
+                    document.getElementById('status').innerHTML = "Downloading: " + Math.round(percent) + "%";
+                }
+            };
+
+            xhr.onload = function() {
+                if (this.status == 200) {
+                    document.getElementById('status').innerHTML = "Download Complete. Files saved locally.";
+                    document.getElementById('instructions').className = 'step';
+                    // Optional: window.location.href = 'app.html?map=' + fileName;
+                } else {
+                    alert("Error: Map file not found on server.");
+                    showSelection();
+                }
+            };
+            xhr.send();
+        }
+    </script>
+</body>
+      </html>
