@@ -6,15 +6,31 @@
     <link rel="stylesheet" href="leaflet-0.7.7.css" />
     <script src="leaflet-0.7.7.js"></script>
     <style>
-   #map { 
-    height: 100%; 
-    width: 100%; 
-    background-color: #f0ede5 !important; /* A "paper" map color */
+/* Force the html and body to take up the full window */
+html, body { 
+    height: 100% !important; 
+    margin: 0; 
+    padding: 0; 
+    overflow: hidden; 
 }
 
-/* Add a border to the map container to prove it exists */
-.leaflet-container {
-    border: 5px solid red; 
+/* Force the map to fill the entire remaining space */
+#map { 
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100% !important;
+    background-color: #f0ede5 !important; /* This will show if the map is 'alive' */
+    border: 5px solid orange; /* Keep this for now to see the boundaries */
+}
+
+/* Ensure the button stays on top */
+.ui-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 9999;
 }
     </style>
 </head>
