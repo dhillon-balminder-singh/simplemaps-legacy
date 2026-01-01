@@ -1,0 +1,14 @@
+/* Query: Johor Bahru District Main Infrastructure
+Optimized for Legacy Android 2.3 (Simplified Geometry)
+*/
+[out:json][timeout:25];
+// Fetch the boundary of Johor Bahru district
+area["name"="Daerah Johor Bahru"]->.searchArea;
+(
+  // Get major roads only (Highways, Primaries, Secondaries)
+  way["highway"~"motorway|trunk|primary|secondary"](area.searchArea);
+  // Get major hospitals and emergency POIs
+  node["amenity"~"hospital|police|fire_station"](area.searchArea);
+);
+// Output simplified geometry to save memory
+out geom;
