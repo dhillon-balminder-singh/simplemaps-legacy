@@ -1,14 +1,69 @@
-/* Query: Johor Bahru District Main Infrastructure
-Optimized for Legacy Android 2.3 (Simplified Geometry)
-*/
-[out:json][timeout:25];
-// Fetch the boundary of Johor Bahru district
-area["name"="Daerah Johor Bahru"]->.searchArea;
-(
-  // Get major roads only (Highways, Primaries, Secondaries)
-  way["highway"~"motorway|trunk|primary|secondary"](area.searchArea);
-  // Get major hospitals and emergency POIs
-  node["amenity"~"hospital|police|fire_station"](area.searchArea);
-);
-// Output simplified geometry to save memory
-out geom;
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Johor Bahru District Boundary" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [103.6, 1.4], [103.85, 1.4], [103.85, 1.6], [103.6, 1.6], [103.6, 1.4]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Skudai Highway", "highway": "primary" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [103.66, 1.54], [103.70, 1.51], [103.74, 1.48], [103.76, 1.46]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Coastal Highway", "highway": "primary" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [103.63, 1.44], [103.70, 1.46], [103.75, 1.46]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Tebrau Highway", "highway": "primary" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [103.76, 1.46], [103.77, 1.49], [103.80, 1.53]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Johor Bahru CIQ (Checkpoint)", "amenity": "government" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.768, 1.465]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Sultanah Aminah Hospital", "amenity": "hospital" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.746, 1.461]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "City Square JB", "amenity": "mall" },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [103.764, 1.462]
+      }
+    }
+  ]
+}
