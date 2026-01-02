@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Easy Map Installer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f4f4f4; color: #333; }
+        .box { background: white; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+        select, button { width: 100%; height: 45px; margin: 10px 0; font-size: 16px; display: block; }
+        #progress-wrap { display: none; margin-top: 20px; }
+        #progress-bar { width: 0%; height: 20px; background: #4CAF50; border: 1px solid #333; }
+        .status { font-size: 13px; color: #666; margin-top: 5px; text-align: center; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="box" id="setup-ui">
+    <h2>Map Setup</h2>
+    
+    <label>1. Select Country</label>
+    <select id="country" onchange="updateStates()">
+        <option value="">-- Choose Country --</option>
+        <option value="my">Malaysia</option>
+    </select>
+
+    <div id="state-section" class="hidden">
+        <label>2. Select State</label>
+        <select id="state" onchange="updateCities()">
+            <option value="">-- Choose State --</option>
+        </select>
+    </div>
+
+    <div id="city-section" class="hidden">
+        <label>3. Select District/City</label>
+        <select id="city">
+            <option value="">-- Choose City --</option>
+        </select>
+    </div>
+
+    <button id="dlBtn" onclick="startInstall()" style="background: #007bff; color: white; border: none; font-weight: bold;">
+        INSTALL SELECTED MAP
+    </button>
+
+    <div id="progress-wrap">
+        <div id="progress-bar-container" style="background:#eee;"><div id="progress-bar"></div></div>
+        <div class="status" id="status-text">Ready to download...</div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    // Pre-defined data for "Least Effort" - no server call needed for lists
+    var mapData = {
+        "my": {
+            "name": "Malaysia",
+            "states": {
+                "johor": {
+                    "name": "Johor",
+                    "cities": ["Johor Bahru", "Batu Pahat", "Kluang"]
+                }
+            }
+        }
+    };
+
+    function updateStates() {
+        var country = document.getElementById('country').value;
+        var stateSel = document.getElementById('state');
+        var section = document.getElementById('state-section');
+        
+        stateSel.innerHTML = '<option value="">-- Choose State --</option>';
+        if (country && mapData[country]) {
+            for (var s in mapData[country].states) {
+                var opt = document.createElement('option');
+                opt.value = s;
+                opt.innerHTML = mapData[country].states[s].name;
+                stateSel.appendChild(opt);
+            }
+            section.className = "";
+        } else {
+            section.className = "hidden";
+        }
+        updateCities(); // Reset cities
+    }
+
+    function updateCities() {
+        var country = document.getElementById('country').value;
+        var state = document.getElementById('state').value;
+        var citySel = document.getElementById('city');
+        var section = document.getElementById('city-section');
+
+        citySel.innerHTML = '<option value="">-- Choose City --</option>';
+        if (state && mapData[country].states[state]) {
+            var cities = mapData[country].states[state].cities;
+            for (var i=0; i<cities.length; i++) {
+                var opt = document.createElement('option');
+                opt.value = cities[i].toLowerCase().replace(" ", "_");
+                opt.innerHTML = cities[i];
+                citySel.appendChild(opt);
+            }
+            section.className = "";
+        } else {
+            section.className = "hidden";
+        }
+    }
+
+    function startInstall() {
+        var c = document.getElementById('country').value;
+        var s = document.getElementById('state').value;
+        var ci = document.getElementById('city').value;
+
+        if (!ci) { alert("Please select a city first!"); return; }
+
+        var fileName = "maps/" + c + "_" + s + "_" + ci + ".json";
+        
+        document.getElementById('progress-wrap').style.display = 'block';
+        document.getElementById('dlBtn').disabled = true;
+        updateStatus("Requesting " + ci + "...");
+
+        var xhr = new XMLHttpRequest();
+        // Force asynchronous to keep legacy UI from freezing
+        xhr.open('GET', fileName, true);
+        
+        xhr.onprogress = function(e) {
+            if (e.lengthComputable) {
+                var pct = Math.round((e.loaded / e.total) * 100);
+                document.getElementById('progress-bar').style.width = pct + '%';
+                updateStatus("Downloading: " + pct + "%");
+            }
+        };
+
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200 || (xhr.status == 0 && xhr.responseText.length > 0)) {
+                    updateStatus("Success! Saving to device memory...");
+                    saveToDB(xhr.responseText);
+                } else {
+                    updateStatus("Error: File not found on server.");
+                    alert("Ensure '"+fileName+"' exists in your maps folder!");
+                    document.getElementById('dlBtn').disabled = false;
+                }
+            }
+        };
+        xhr.send();
+    }
+
+    function updateStatus(m) { document.getElementById('status-text').innerHTML = m; }
+
+    function saveToDB(data) {
+        try {
+            var db = window.openDatabase("MapDB", "1.0", "Offline Maps", 20 * 1024 * 1024);
+            db.transaction(function(tx) {
+                tx.executeSql('CREATE TABLE IF NOT EXISTS maps (id UNIQUE, content)');
+                tx.executeSql('INSERT OR REPLACE INTO maps (id, content) VALUES ("active_map", ?)', [data]);
+            }, function(e){ alert("DB Error: " + e.message); }, function(){
+                alert("Installation Successful!");
+                window.location.href = 'map_view.html';
+            });
+        } catch(e) {
+            alert("Your browser does not support offline storage.");
+        }
+    }
+</script>
+
+</body>
+</html>
