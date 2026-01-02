@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ops-Map Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="leaflet-0.7.7.css" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: #1C2833; overflow: hidden; font-family: sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; background: #1C2833; }
+
+        /* FIXED DRAWER FOR ANDROID 10 TOUCH */
+        #drawer {
+            position: absolute; top: 0; left: -280px; width: 270px; height: 100%;
+            background: #1C2833; color: #D5DBDB; z-index: 20000; /* Elevated z-index */
+            border-right: 4px solid #2E86C1; transition: left 0.3s; -webkit-transition: left 0.3s;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+        }
+        #drawer.open { left: 0px; }
+        
+        .menu-section { padding: 20px 15px; border-bottom: 1px solid #2C3E50; }
+        .menu-title { color: #5DADE2; font-size: 11px; font-weight: bold; margin-bottom: 12px; text-transform: uppercase; }
+        .menu-btn { 
+            display: block; width: 100%; margin-bottom: 10px; padding: 14px; 
+            background: #273746; border: 1px solid #34495E; color: #FBFCFC; 
+            text-align: left; font-size: 14px; cursor: pointer;
+            touch-action: manipulation; /* Improves touch response on Android 10 */
+        }
+
+        #menu-toggle {
+            position: absolute; top: 15px; left: 15px; z-index: 15000; /* High z-index */
+            background: #28B463; color: #FFF; padding: 12px 18px; border: none; 
+            font-weight: bold; border-radius: 2px; cursor: pointer;
+            touch-action: manipulation;
+        }
+        #cam-input { display: none; }
+    </style>
+</head>
+<body>
+    <button id="menu-toggle" onclick="toggleMenu()">≡ SYSTEM MENU</button>
+
+    <div id="drawer">
+        <div class="menu-section">
+            <div class="menu-title">Navigation</div>
+            <button class="menu-btn" onclick="getLocation()">📍 Locate Asset</button>
+            <button class="menu-btn" onclick="prepNav()">🛤️ Vector Nav (A to B)</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-title">Layers</div>
+            <button class="menu-btn" onclick="setLayer('std')">Standard Map</button>
+            <button class="menu-btn" onclick="setLayer('sat')">Satellite Analysis</button>
+            <button class="menu-btn" onclick="setLayer('topo')">Topographic View</button>
+            <button class="menu-btn" onclick="togglePOIs()">Toggle Data Layers</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-title">Data Transmission</div>
+            <button class="menu-btn" onclick="document.getElementById('cam-input').click()">📸 Capture & Share Photo</button>
+            <button class="menu-btn" onclick="shareLoc()">📤 Transmit Coords</button>
+            <button class="menu-btn" onclick="copyCoords()">📋 Copy Location</button>
+            <input type="file" id="cam-input" accept="image/*" capture="camera" onchange="processPhoto(this)">
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="leaflet-0.7.7.js"></script>
+    <script>
+        var map = L.map('map', {zoomControl: false}).setView([1.49, 103.75], 13);
+        var currentGPS = null;
+        var navMode = false;
+        var poiLayer = L.layerGroup();
+        var navLine = null;
+
+        // 1. LAYER CONFIGURATION
+        var tileLayers = {
+            std: L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'),
+            sat: L.tileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'),
+            topo: L.tileLayer('http://{s}.tile.opentopomap.org/{z}/{x}/{y}.png')
+        };
+        tileLayers.std.addTo(map);
+
+        function setLayer(type) {
+            for (var id in tileLayers) { map.removeLayer(tileLayers[id]); }
+            tileLayers[type].addTo(map);
+            toggleMenu();
+        }
+
+        // 2. CORE UTILITIES
+        function toggleMenu() {
+            var d = document.getElementById('drawer');
+            d.classList.toggle('open');
+        }
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    currentGPS = L.latLng(position.coords.latitude, position.coords.longitude);
+                    L.marker(currentGPS).addTo(map).bindPopup("Current Position").openPopup();
+                    map.setView(currentGPS, 16);
+                    toggleMenu();
+                }, function(err) { alert("GPS Lock Failed: " + err.message); });
+            }
+        }
+
+        // 3. VECTOR NAVIGATION (A TO B)
+        function prepNav() {
+            if (!currentGPS) { alert("Locate Asset first!"); return; }
+            navMode = true;
+            toggleMenu();
+            alert("Click destination on map.");
+        }
+
+        map.on('click', function(e) {
+            if (navMode && currentGPS) {
+                if (navLine) map.removeLayer(navLine);
+                navLine = L.polyline([currentGPS, e.latlng], {color: '#00FFFF', dashArray: '10,15', weight: 4}).addTo(map);
+                map.fitBounds(navLine.getBounds());
+                navMode = false;
+            }
+        });
+
+        // 4. SHARING & PHOTO [cite: 4, 5]
+        function shareLoc() {
+            if (!currentGPS) return alert("No location data.");
+            var txt = "Location: " + currentGPS.lat.toFixed(5) + "," + currentGPS.lng.toFixed(5);
+            window.location.href = "sms:?body=" + encodeURIComponent(txt + " View: http://maps.google.com/?q=" + currentGPS.lat + "," + currentGPS.lng);
+        }
+
+        function copyCoords() {
+            if (!currentGPS) return;
+            var coords = currentGPS.lat.toFixed(5) + "," + currentGPS.lng.toFixed(5);
+            prompt("Coordinates (Copy below):", coords); // Bulletproof for all versions
+        }
+
+        function processPhoto(input) {
+            if (input.files && input.files[0] && currentGPS) {
+                alert("Visual Captured at: " + currentGPS.lat.toFixed(5) + ", " + currentGPS.lng.toFixed(5) + "\nReady to share.");
+                shareLoc(); // Automatically triggers share after photo
+            }
+        }
+
+        function togglePOIs() {
+            if (map.hasLayer(poiLayer)) map.removeLayer(poiLayer);
+            else poiLayer.addTo(map);
+            toggleMenu();
+        }
+    </script>
+</body>
+</html>
