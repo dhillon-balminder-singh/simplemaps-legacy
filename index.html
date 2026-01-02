@@ -80,6 +80,39 @@
             }, { enableHighAccuracy: true });
         }
     }
+    var navLine = null;
+var destinationMarker = null;
+
+function prepNav() {
+    alert("System Ready: Tap your destination on the map.");
+    navMode = true;
+    toggleMenu();
+}
+
+map.on('click', function(e) {
+    if (navMode) {
+        // Clear previous nav data
+        if (navLine) { map.removeLayer(navLine); }
+        if (destinationMarker) { map.removeLayer(destinationMarker); }
+        
+        // Check for current location (Point A)
+        if (!currentGPS) { 
+            alert("Error: GPS lock required for Point A."); 
+            return; 
+        }
+        
+        // Draw dashed "Cyan" line to match Navy theme
+        navLine = L.polyline([currentGPS, e.latlng], {
+            color: '#00FFFF', weight: 4, dashArray: '10, 15', opacity: 0.8
+        }).addTo(map);
+
+        destinationMarker = L.marker(e.latlng).addTo(map)
+            .bindPopup("<b>Destination</b><br>Proceed on this bearing.").openPopup();
+        
+        map.fitBounds(navLine.getBounds(), {padding: [50, 50]});
+        navMode = false;
+    }
+});
 </script>
 </body>
 
