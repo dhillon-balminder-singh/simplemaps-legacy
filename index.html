@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ops-Map Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <link rel="stylesheet" href="leaflet.css" />
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: #1C2833; overflow: hidden; font-family: sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+
+        /* INTERACTION LAYERS */
+        #drawer {
+            position: absolute; top: 0; left: -285px; width: 270px; height: 100%;
+            background: #1C2833; color: #D5DBDB; z-index: 20001;
+            border-right: 4px solid #2E86C1; transition: 0.3s; -webkit-transition: 0.3s;
+            overflow-y: auto;
+        }
+        #drawer.open { left: 0px; }
+
+        #overlay {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 20000;
+        }
+        #overlay.active { display: block; }
+        
+        /* MENU COMPONENTS */
+        .menu-section { padding: 15px; border-bottom: 1px solid #2C3E50; }
+        .menu-title { color: #5DADE2; font-size: 11px; font-weight: bold; margin-bottom: 10px; text-transform: uppercase; }
+        .menu-btn { 
+            display: block; width: 100%; margin-bottom: 8px; padding: 14px; 
+            background: #273746; border: 1px solid #34495E; color: #FBFCFC; 
+            text-align: left; font-size: 14px; cursor: pointer; touch-action: manipulation;
+        }
+
+        #menu-toggle {
+            position: absolute; top: 15px; left: 15px; z-index: 15000;
+            background: #28B463; color: #FFF; padding: 12px 18px; border: none; font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <button id="menu-toggle" onclick="toggleMenu()">? SYSTEM MENU</button>
+    <div id="overlay" onclick="toggleMenu()"></div>
+
+    <div id="drawer">
+        <div class="menu-section">
+            <div class="menu-title">Deployment</div>
+            <button class="menu-btn" onclick="executeAction(getLocation, true)">? Find My Location</button>
+            <button class="menu-btn" onclick="executeAction(prepNav, true)">? Navigate (A to B)</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-title">Layers</div>
+            <button class="menu-btn" onclick="setLayer('std')">Standard</button>
+            <button class="menu-btn" onclick="setLayer('topo')">Topographic</button>
+            <button class="menu-btn" onclick="setLayer('sat')">Satellite</button>
+            <button class="menu-btn" onclick="togglePOIs()">Toggle POIs (Blue Lines)</button>
+        </div>
+        <div class="menu-section">
+            <div class="menu-title">Transmission</div>
+            <button class="menu-btn" onclick="executeAction(() => document.getElementById('cam-input').click(), true)">? Take & Share Photo</button>
+            <button class="menu-btn" onclick="executeAction(shareLoc, true)">? Share Location (Msg/BT)</button>
+            <button class="menu-btn" onclick="executeAction(copyCoords, true)">? Copy Coordinates</button>
+            <input type="file" id="cam-input" accept="image/*" capture="camera" style="display:none" onchange="processPhoto(this)">
+        </div>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="leaflet.js"></script>
+    <script>
+        var map = L.map('map', {zoomControl: false}).setView([1.49, 103.75], 13);
+        var currentGPS = null;
+        var navMode = false;
+        var navLine = null;
+        var poiLayer = L.layerGroup();
+
+        // 1. DATABASE & POI LOADING
+        var db = window.openDatabase("MapDB", "1.0", "Offline Maps", 20 * 1024 * 1024);
+        db.transaction(function(tx) {
+            tx.executeSql('SELECT content FROM maps WHERE id = "active_map"', [], function (tx, results) {
+                if (results.rows.length > 0) {
+                    var geoData = JSON.parse(results.rows.item(0).content);
+                    L.geoJson(geoData, {
+                        style: function() { return { color: "#3388ff", weight: 2 }; }
+                    }).addTo(poiLayer);
+                }
+            });
+        });
+
+        // 2. LAYER ENGINE
+        var tileLayers = {
+            std: L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map),
+            topo: L.tileLayer('http://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'),
+            sat: L.tileLayer('http://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}')
+        };
+
+        function setLayer(type) {
+            for (var id in tileLayers) { map.removeLayer(tileLayers[id]); }
+            tileLayers[type].addTo(map);
+        }
+
+        // 3. UI LOGIC 
+        function toggleMenu() {
+            document.getElementById('drawer').classList.toggle('open');
+            document.getElementById('overlay').classList.toggle('active');
+        }
+
+        function executeAction(fn, shouldClose) {
+            fn();
+            if(shouldClose) toggleMenu();
+        }
+
+        // 4. FEATURE LOGIC 
+        function getLocation() {
+            map.locate({setView: true, maxZoom: 16});
+        }
+        map.on('locationfound', function(e) {
+            currentGPS = e.latlng;
+            L.marker(e.latlng).addTo(map).bindPopup("Current Asset").openPopup();
+        });
+
+        function prepNav() {
+            if(!currentGPS) { alert("Locate yourself first."); return; }
+            navMode = true;
+            alert("Tap destination on map.");
+        }
+
+        map.on('click', function(e) {
+            if(navMode && currentGPS) {
+                if(navLine) map.removeLayer(navLine);
+                navLine = L.polyline([currentGPS, e.latlng], {color: '#00FFFF', dashArray: '10,15'}).addTo(map);
+                map.fitBounds(navLine.getBounds());
+                navMode = false;
+            }
+        });
+
+        function shareLoc() {
+            if(!currentGPS) return;
+            var coords = currentGPS.lat.toFixed(5) + "," + currentGPS.lng.toFixed(5);
+            window.location.href = "sms:?body=" + encodeURIComponent("My Location: " + coords + " http://maps.google.com/?q=" + coords);
+        }
+
+        function copyCoords() {
+            if(!currentGPS) return;
+            prompt("Copy Coords:", currentGPS.lat.toFixed(5) + "," + currentGPS.lng.toFixed(5));
+        }
+
+        function processPhoto(input) {
+            if (input.files && input.files[0]) {
+                alert("Visual Captured. Use 'Share Location' to send with coordinates.");
+            }
+        }
+
+        function togglePOIs() {
+            if (map.hasLayer(poiLayer)) map.removeLayer(poiLayer);
+            else poiLayer.addTo(map);
+        }
+    </script>
+</body>
+</html>
