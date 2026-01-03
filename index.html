@@ -3,7 +3,7 @@
 <head>
     <title>Ops-Map Pro</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <link rel="stylesheet" href="leaflet.css" />
+    <link rel="stylesheet" href="leaflet-0.7.7.css" />
     <style>
         html, body { height: 100%; margin: 0; padding: 0; background: #1C2833; overflow: hidden; font-family: sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
@@ -68,7 +68,7 @@
 
     <div id="map"></div>
 
-    <script src="leaflet.js"></script>
+    <script src="leaflet-0.7.7.js"></script>
     <script>
         var map = L.map('map', {zoomControl: false}).setView([1.49, 103.75], 13);
         var currentGPS = null;
